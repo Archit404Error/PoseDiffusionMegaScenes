@@ -17,3 +17,6 @@ dependency/
 # Ignore .DS_Store files in any folder
 .DS_Store
 **/.DS_Store
+.idea/
+cfgs/
+checkpoints/

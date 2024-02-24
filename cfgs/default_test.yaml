@@ -6,9 +6,9 @@ exp_name: exp001_test
 
 test:
     # Please Specify Your Own Path
-    CO3D_DIR: "/datasets01/co3dv2/080422/"
-    CO3D_ANNOTATION_DIR: "/fsx-repligen/jianyuan/datasets/co3d_relpose/"
-    resume_ckpt: "/data/home/jianyuan/src/PoseDiffusion/pose_diffusion/tmp/co3d_model_Apr16.pth"
+    CO3D_DIR: "/share/hariharan/datasets/CO3Dv2"
+    CO3D_ANNOTATION_DIR: "/share/phoenix/nfs04/S7/rc844/MegaScenes/co3d/co3d_v2_annotations"
+    resume_ckpt: "/home/am2283/pose_diffusion/PoseDiffusion/pose_diffusion/checkpoints/co3d_model.pth"
     
     random_order: True
     num_frames: 10
