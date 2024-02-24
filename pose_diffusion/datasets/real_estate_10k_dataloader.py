@@ -14,7 +14,7 @@ class RealEstate10KDataset(Dataset):
     # NamedTuple type for handling parsed camera metadata
     CameraMetadata = namedtuple("CameraMetadata", ["R", "t", "focal_length", "principal_point"])
 
-    def __init__(self, split, dataset_images_path, dataset_metadata_path):
+    def __init__(self, split, dataset_images_path, dataset_metadata_path, min_image_dimension=224):
         """
         Args:
             split - either train or test
@@ -25,9 +25,12 @@ class RealEstate10KDataset(Dataset):
         self.split = split
         self.sequence_metadata_map = defaultdict(list)
         self.sequence_names = []
-        self.PIL_to_torch = transforms.Compose([
-            transforms.ToTensor()
+
+        self.preprocess_image_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize(min_image_dimension, antialias=True)
         ])
+        self.resized_image_min_dim = min_image_dimension
 
         self.images_split_path = os.path.join(dataset_images_path, split)
         metadata_split_path = os.path.join(dataset_metadata_path, split)
@@ -123,8 +126,15 @@ class RealEstate10KDataset(Dataset):
             image_path = image_metadata["filepath"]
 
             current_image = Image.open(os.path.join(self.images_split_path, sequence_name, image_path)).convert("RGB")
-            images.append(self.PIL_to_torch(current_image))
-            image_width, image_height = current_image.size
+            images.append(self.preprocess_image_transform(current_image))
+            original_image_width, original_image_height = current_image.size
+
+            if original_image_width < original_image_height:
+                image_width = self.resized_image_min_dim
+                image_height = original_image_height / original_image_width * self.resized_image_min_dim
+            else:
+                image_width = original_image_width / original_image_height * self.resized_image_min_dim
+                image_height = self.resized_image_min_dim
 
             image_rotations.append(torch.Tensor(image_metadata["R"]))
             image_translations.append(torch.Tensor(image_metadata["T"]))
