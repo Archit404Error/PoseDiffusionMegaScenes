@@ -45,7 +45,7 @@ class RealEstate10KDataset(Dataset):
                 sequence_image_timestamp = int(sequence_image_path.split(".")[0])
                 image_metadata = parsed_metadata[sequence_image_timestamp]
                 self.sequence_metadata_map[sequence_name].append({
-                    "filepath": sequence_image_path,
+                    "filepath": os.path.join(sequence_directory, sequence_image_path),
                     "R": image_metadata.R,
                     "T": image_metadata.t,
                     "focal_length": image_metadata.focal_length,
@@ -105,11 +105,13 @@ class RealEstate10KDataset(Dataset):
         sequence = self.sequence_names[sequence_idx]
         sequence_image_count = len(self.sequence_metadata_map[sequence])
         sequence_image_indexes = np.random.choice(sequence_image_count, image_count, replace=False)
-        self.get_data(sequence, sequence_image_indexes)
+        batch, _ = self.get_data(sequence, sequence_image_indexes)
+        return batch
 
     def get_data(self, sequence_name, sequence_image_indexes):
         """
-        Helper method to fetch data for __getitem__
+        A method to fetch a batch of images and their corresponding metadata given a
+        sequence name and a list of image indexes
         """
 
         selected_images_metadata: List[Dict] = [self.sequence_metadata_map[sequence_name][i] for i in sequence_image_indexes]
@@ -121,11 +123,14 @@ class RealEstate10KDataset(Dataset):
         image_translations = []
         image_focal_lengths = []
         image_principal_points = []
+        image_bounding_boxes = []
+        image_paths = []
 
         for image_metadata in selected_images_metadata:
             image_path = image_metadata["filepath"]
+            image_paths.append(image_path)
 
-            current_image = Image.open(os.path.join(self.images_split_path, sequence_name, image_path)).convert("RGB")
+            current_image = Image.open(image_path).convert("RGB")
             images.append(self.preprocess_image_transform(current_image))
             original_image_width, original_image_height = current_image.size
 
@@ -135,6 +140,8 @@ class RealEstate10KDataset(Dataset):
             else:
                 image_width = original_image_width / original_image_height * self.resized_image_min_dim
                 image_height = self.resized_image_min_dim
+
+            image_bounding_boxes.append(np.array([0, 0, image_width, image_height]))
 
             image_rotations.append(torch.Tensor(image_metadata["R"]))
             image_translations.append(torch.Tensor(image_metadata["T"]))
@@ -152,11 +159,15 @@ class RealEstate10KDataset(Dataset):
         batch["images"] = torch.stack(images)
         batch["R"] = torch.stack(image_rotations)
         batch["T"] = torch.stack(image_translations)
-        batch["crop_params"] = None
         batch["fl"] = torch.stack(image_focal_lengths)
         batch["pp"] = torch.stack(image_principal_points)
+        batch["crop_params"] = {
+            "size": tuple(images[0].shape),
+            "resized_scales": np.ones(len(images)),
+            "bboxes_xyxy": np.stack(image_bounding_boxes)
+        }
 
-        return batch
+        return batch, image_paths
 
 
 if __name__ == '__main__':
