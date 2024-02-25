@@ -8,6 +8,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from pytorch3d.renderer.cameras import PerspectiveCameras
 from test import prefix_with_module
+from tqdm import tqdm
 from util.geometry_guided_sampling import geometry_guided_sampling
 from util.match_extraction import extract_match
 from util.metric import camera_to_rel_deg, calculate_auc_np
@@ -99,6 +100,20 @@ def compute_sequence_error(sequence_name, re10k_dataset, model, config, accelera
     return rotation_error_deg.cpu().numpy(),translation_error_deg.cpu().numpy()
 
 
+def save_average_metric_data(accuracy_upper_bounds, rotation_errors, translation_errors, auc_30_error, iteration, outfile):
+    avg_rotation_errors = rotation_errors / iteration
+    avg_translation_errors = translation_errors / iteration
+    avg_auc_30_error = auc_30_error / iteration
+
+    outfile.write(f"{'=' * 10} Iteration {iteration} {'=' * 10}")
+
+    for i, upper_bound in enumerate(accuracy_upper_bounds):
+        outfile.write(f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}\n")
+        outfile.write(f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}\n")
+
+    outfile.write(f"Average AUC 30 Error: {avg_auc_30_error}\n\n")
+
+
 @hydra.main(config_path="../cfgs/", config_name="re10k_test")
 def test_model_re10k(config: DictConfig):
     OmegaConf.set_struct(config, False)
@@ -122,45 +137,35 @@ def test_model_re10k(config: DictConfig):
     re10k_dataset = RealEstate10KDataset(
         split="test",
         dataset_images_path=config.test.images_path,
-        dataset_metadata_path=config.test.metadata_path
+        dataset_metadata_path=config.test.metadata_path,
+        min_image_dimension=config.test.img_size
     )
 
     accuracy_upper_bounds = [5, 15, 30]
-    avg_rotation_errors = np.zeros(len(accuracy_upper_bounds))
-    avg_translation_errors = np.zeros(len(accuracy_upper_bounds))
-    avg_auc_30_error = 0
+    total_rotation_errors = np.zeros(len(accuracy_upper_bounds))
+    total_translation_errors = np.zeros(len(accuracy_upper_bounds))
+    total_auc_30_error = 0
 
-    for sequence_name in re10k_dataset.sequence_names:
-        rotation_errors, translation_errors = (
-            compute_sequence_error(sequence_name, re10k_dataset, model, config, accelerator))
+    with open(f"{config.exp_name}.txt", "w") as output_file:
+        for i, sequence_name in tqdm(enumerate(re10k_dataset.sequence_names)):
+            rotation_errors, translation_errors = (
+                compute_sequence_error(sequence_name, re10k_dataset, model, config, accelerator))
 
-        for i, upper_bound in enumerate(accuracy_upper_bounds):
-            avg_rotation_errors[i] += np.mean(rotation_errors < upper_bound) * 100
-            avg_translation_errors[i] += np.mean(translation_errors < upper_bound) * 100
+            for j, upper_bound in enumerate(accuracy_upper_bounds):
+                total_rotation_errors[j] += np.mean(rotation_errors < upper_bound) * 100
+                total_translation_errors[j] += np.mean(translation_errors < upper_bound) * 100
 
-        avg_auc_30_error += calculate_auc_np(rotation_errors, translation_errors, max_threshold=30) * 100
+            total_auc_30_error += calculate_auc_np(rotation_errors, translation_errors, max_threshold=30) * 100
 
-    num_sequences = len(re10k_dataset.sequence_names)
-    avg_rotation_errors /= num_sequences
-    avg_translation_errors /= num_sequences
-    avg_auc_30_error /= num_sequences
-
-    output_file = open(f"{config.exp_name}.txt", "w")
-
-    for i, upper_bound in enumerate(accuracy_upper_bounds):
-        rotation_error_message = f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}"
-        translation_error_message = f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}"
-
-        output_file.write(rotation_error_message + "\n")
-        output_file.write(translation_error_message + "\n")
-
-        print(rotation_error_message)
-        print(translation_error_message)
-
-    auc_error_message = f"Average AUC 30 Error: {avg_auc_30_error}"
-    print(auc_error_message)
-    output_file.write(auc_error_message)
-    output_file.close()
+            if (i + 1) % config.test.save_steps == 0 or i == len(re10k_dataset.sequence_names) - 1:
+                save_average_metric_data(
+                    accuracy_upper_bounds,
+                    total_rotation_errors,
+                    total_translation_errors,
+                    total_auc_30_error,
+                    i + 1,
+                    output_file
+                )
 
 
 if __name__ == '__main__':

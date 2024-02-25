@@ -14,7 +14,7 @@ class RealEstate10KDataset(Dataset):
     # NamedTuple type for handling parsed camera metadata
     CameraMetadata = namedtuple("CameraMetadata", ["R", "t", "focal_length", "principal_point"])
 
-    def __init__(self, split, dataset_images_path, dataset_metadata_path, min_image_dimension=224):
+    def __init__(self, split, dataset_images_path, dataset_metadata_path, min_image_dimension):
         """
         Args:
             split - either train or test
