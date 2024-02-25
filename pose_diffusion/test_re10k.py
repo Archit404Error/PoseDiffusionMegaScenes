@@ -145,11 +145,22 @@ def test_model_re10k(config: DictConfig):
     avg_translation_errors /= num_sequences
     avg_auc_30_error /= num_sequences
 
-    for i, upper_bound in enumerate(accuracy_upper_bounds):
-        print(f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}")
-        print(f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}")
+    output_file = open(f"{config.exp_name}.txt", "w")
 
-    print(f"Average AUC 30 Error: {avg_auc_30_error}")
+    for i, upper_bound in enumerate(accuracy_upper_bounds):
+        rotation_error_message = f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}"
+        translation_error_message = f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}"
+
+        output_file.write(rotation_error_message + "\n")
+        output_file.write(translation_error_message + "\n")
+
+        print(rotation_error_message)
+        print(translation_error_message)
+
+    auc_error_message = f"Average AUC 30 Error: {avg_auc_30_error}"
+    print(auc_error_message)
+    output_file.write(auc_error_message)
+    output_file.close()
 
 
 if __name__ == '__main__':

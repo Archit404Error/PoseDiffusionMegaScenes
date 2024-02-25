@@ -36,12 +36,17 @@ class RealEstate10KDataset(Dataset):
         metadata_split_path = os.path.join(dataset_metadata_path, split)
 
         sequence_names = os.listdir(self.images_split_path)
-        for sequence_name in tqdm(sequence_names):
+        for i, sequence_name in tqdm(enumerate(sequence_names)):
+            if i % 4 != 0:
+                continue
+
+            self.sequence_names.append(sequence_name)
+
             sequence_metadata_filepath = os.path.join(metadata_split_path, f"{sequence_name}.txt")
             parsed_metadata = self.__parse_metadata_file(sequence_metadata_filepath)
 
             sequence_directory = os.path.join(self.images_split_path, sequence_name)
-            for i, sequence_image_path in enumerate(os.listdir(sequence_directory)):
+            for sequence_image_path in os.listdir(sequence_directory):
                 sequence_image_timestamp = int(sequence_image_path.split(".")[0])
                 image_metadata = parsed_metadata[sequence_image_timestamp]
                 self.sequence_metadata_map[sequence_name].append({
@@ -51,7 +56,8 @@ class RealEstate10KDataset(Dataset):
                     "focal_length": image_metadata.focal_length,
                     "principal_point": image_metadata.principal_point
                 })
-                self.sequence_names.append(sequence_name)
+
+        print(f"Testing on {len(self.sequence_names)} videos")
 
     def __parse_metadata_file(self, metadata_filepath):
         """
