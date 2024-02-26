@@ -1,0 +1,69 @@
+seed: 0
+exp_name: re10k_test
+
+
+
+
+test:
+    # Please Specify Your Own Path
+    images_path: "/share/phoenix/nfs05/S8/rc844/RE10K/RealEstate10K_Downloader/dataset"
+    metadata_path: "/share/phoenix/nfs04/S7/rc844/MegaScenes/RE10K/RealEstate10K"
+    resume_ckpt: "/home/am2283/pose_diffusion/PoseDiffusion/pose_diffusion/checkpoints/co3d_model.pth"
+    save_steps: 25 
+
+    random_order: True
+    num_frames: 10
+
+    ##########################
+
+    img_size: 224
+    category: seen
+
+    normalize_cameras: True
+    persistent_workers: True
+
+    preload_image: False
+    cudnnbenchmark: False
+    first_camera_transform: True
+    min_num_images: 50
+    compute_optical: True
+
+GGS:
+    enable: True
+    start_step: 10
+    learning_rate: 0.01
+    iter_num: 100
+    sampson_max: 10
+    min_matches: 10
+    alpha: 0.0001
+
+
+
+debug: False
+
+
+MODEL:
+    _target_: models.PoseDiffusionModel
+
+    pose_encoding_type: absT_quaR_logFL
+
+    IMAGE_FEATURE_EXTRACTOR: 
+        _target_: models.MultiScaleImageFeatureExtractor
+        modelname: "dino_vits16"
+        freeze: False
+
+    DENOISER: 
+        _target_: models.Denoiser
+        TRANSFORMER:
+            _target_:               models.TransformerEncoderWrapper
+            d_model:                512
+            nhead:                  4
+            dim_feedforward:        1024
+            num_encoder_layers:     8
+            dropout:                0.1
+            batch_first:            True
+            norm_first:             True
+
+    DIFFUSER:
+        _target_: models.GaussianDiffusion
+        beta_schedule: custom

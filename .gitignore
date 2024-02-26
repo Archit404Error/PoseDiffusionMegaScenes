@@ -18,5 +18,4 @@ dependency/
 .DS_Store
 **/.DS_Store
 .idea/
-cfgs/
 checkpoints/

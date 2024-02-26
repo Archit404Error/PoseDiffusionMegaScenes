@@ -100,18 +100,20 @@ def compute_sequence_error(sequence_name, re10k_dataset, model, config, accelera
     return rotation_error_deg.cpu().numpy(),translation_error_deg.cpu().numpy()
 
 
-def save_average_metric_data(accuracy_upper_bounds, rotation_errors, translation_errors, auc_30_error, iteration, outfile):
-    avg_rotation_errors = rotation_errors / iteration
-    avg_translation_errors = translation_errors / iteration
-    avg_auc_30_error = auc_30_error / iteration
+def save_average_metric_data(accuracy_upper_bounds, rotation_errors, translation_errors, auc_30_error, iteration, outfile_path):
+    print(f"\n\n\n SAVING in {outfile_path} \n\n\n")
+    with open(outfile_path, "a") as outfile:
+        avg_rotation_errors = rotation_errors / iteration
+        avg_translation_errors = translation_errors / iteration
+        avg_auc_30_error = auc_30_error / iteration
 
-    outfile.write(f"{'=' * 10} Iteration {iteration} {'=' * 10}")
+        outfile.write(f"{'=' * 10} Iteration {iteration} {'=' * 10}\n")
 
-    for i, upper_bound in enumerate(accuracy_upper_bounds):
-        outfile.write(f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}\n")
-        outfile.write(f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}\n")
+        for i, upper_bound in enumerate(accuracy_upper_bounds):
+            outfile.write(f"Average Rotation Error @ {upper_bound}: {avg_rotation_errors[i]}\n")
+            outfile.write(f"Average Translation Error @ {upper_bound}: {avg_translation_errors[i]}\n")
 
-    outfile.write(f"Average AUC 30 Error: {avg_auc_30_error}\n\n")
+        outfile.write(f"Average AUC 30 Error: {avg_auc_30_error}\n\n")
 
 
 @hydra.main(config_path="../cfgs/", config_name="re10k_test")
@@ -146,26 +148,25 @@ def test_model_re10k(config: DictConfig):
     total_translation_errors = np.zeros(len(accuracy_upper_bounds))
     total_auc_30_error = 0
 
-    with open(f"{config.exp_name}.txt", "w") as output_file:
-        for i, sequence_name in tqdm(enumerate(re10k_dataset.sequence_names)):
-            rotation_errors, translation_errors = (
-                compute_sequence_error(sequence_name, re10k_dataset, model, config, accelerator))
+    for i, sequence_name in tqdm(enumerate(re10k_dataset.sequence_names)):
+        rotation_errors, translation_errors = (
+            compute_sequence_error(sequence_name, re10k_dataset, model, config, accelerator))
 
-            for j, upper_bound in enumerate(accuracy_upper_bounds):
-                total_rotation_errors[j] += np.mean(rotation_errors < upper_bound) * 100
-                total_translation_errors[j] += np.mean(translation_errors < upper_bound) * 100
+        for j, upper_bound in enumerate(accuracy_upper_bounds):
+            total_rotation_errors[j] += np.mean(rotation_errors < upper_bound) * 100
+            total_translation_errors[j] += np.mean(translation_errors < upper_bound) * 100
 
-            total_auc_30_error += calculate_auc_np(rotation_errors, translation_errors, max_threshold=30) * 100
+        total_auc_30_error += calculate_auc_np(rotation_errors, translation_errors, max_threshold=30) * 100
 
-            if (i + 1) % config.test.save_steps == 0 or i == len(re10k_dataset.sequence_names) - 1:
-                save_average_metric_data(
-                    accuracy_upper_bounds,
-                    total_rotation_errors,
-                    total_translation_errors,
-                    total_auc_30_error,
-                    i + 1,
-                    output_file
-                )
+        if (i + 1) % config.test.save_steps == 0 or i == len(re10k_dataset.sequence_names) - 1:
+            save_average_metric_data(
+                accuracy_upper_bounds,
+                total_rotation_errors,
+                total_translation_errors,
+                total_auc_30_error,
+                i + 1,
+                f"/home/am2283/pose_diffusion/PoseDiffusion/pose_diffusion/{config.exp_name}.txt"
+            )
 
 
 if __name__ == '__main__':
