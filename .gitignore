@@ -19,3 +19,4 @@ dependency/
 **/.DS_Store
 .idea/
 checkpoints/
+*.txt
